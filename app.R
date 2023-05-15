@@ -22,7 +22,7 @@ shinyApp(
                                           choices = c("Multicollinearity Plot",
                                                       "Correlation Funnel")),
                               hidden(plotOutput("funnel")),
-                              hidden(plotOutput("plot1"))
+                              hidden(plotOutput("corr"))
                             )
                 
                    ),
@@ -74,41 +74,63 @@ shinyApp(
   
   
   server = function(input, output) {
+    
+    gower.dist <- reactive({
+      import.gower.dist(input$slider, corr.tbl)
+    })
+    
+    sil.tbl <- reactive({
+      import.sil.tbl(gower.dist())
+    })
+    
+    cluster.tbl <- reactive({
+      import.cluster(sil.tbl(), gower.dist())
+    })
+    
+    attr.tbl <- reactive({
+      import.best.k(cluster.tbl())
+    })
+    
     output$txtout <- renderText({
       paste(input$varType, input$slider/100, sep = ", ")
     })
+    
     output$table <- renderTable({
       head(df)
     })
+    
     output$nulls <- renderText({
       paste("Number of null values:", import.null.count(df))
     })
-    output$plot1 <- renderPlot({
-      corrplot(df.cor, type = "upper", order = "hclust", 
+    
+    output$corr <- renderPlot({
+      corrplot(corr.mat, type = "upper", order = "hclust", 
                tl.col = "black", tl.srt = 90)
     })
+    
     output$funnel <- renderPlot({
       corr.tbl  %>%
         plot_correlation_funnel() 
     })
+    
     output$sil.plot <- renderPlot({
-      ggplot(import.sil.tbl(import.gower.dist(input$slider, corr.tbl)), 
+      ggplot(sil.tbl(), 
              aes(x = k, y = sil_width)) +
         geom_point(size = 2) +
         geom_line() +
         scale_x_continuous(breaks = 2:10)
     })
+    
     output$att.table <- renderTable({
-      import.best.k(import.sil.tbl(import.gower.dist(input$slider, corr.tbl)),
-                    import.gower.dist(input$slider, corr.tbl))
+      attr.tbl()
     })
     
     observeEvent(input$corr_plots,{
       if (input$corr_plots == "Multicollinearity Plot"){
         hide('funnel')
-        show('plot1')
+        show('corr')
       }else{
-        hide('plot1')
+        hide('corr')
         show('funnel')
       }
     })
@@ -139,19 +161,14 @@ shinyApp(
     selectedData2 <- reactive({
       input$explore_clusters
     })
-    
     output$continuos_plot2 <- renderPlot({
-      continous.plot2(import.cluster(import.sil.tbl(import.gower.dist(input$slider, corr.tbl)),
-                                     import.gower.dist(input$slider, corr.tbl)), 
+      continous.plot2(cluster.tbl(), 
                       selectedData2())
     })
-    
     output$factor_plot2 <- renderPlot({
-      factor.plot2(import.cluster(import.sil.tbl(import.gower.dist(input$slider, corr.tbl)),
-                                  import.gower.dist(input$slider, corr.tbl)), 
+      factor.plot2(cluster.tbl(), 
                    selectedData2())
     })
-    
     observeEvent(input$explore_clusters,{
       if (all(class(df[, input$explore_clusters]) == 'integer')){
         hide('factor_plot2')

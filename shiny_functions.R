@@ -22,7 +22,9 @@ import.df <- function(){
   return(df)
 }
 
+
 import.corr.mat <- function(df){
+  
   cor.mat <- df %>%
   select(Age, DailyRate, DistanceFromHome, Education, 
          EnvironmentSatisfaction, HourlyRate, JobInvolvement, JobLevel, 
@@ -36,7 +38,9 @@ import.corr.mat <- function(df){
   return(df.cor)
 }
 
+
 import.corr.funnel <- function(df){
+  
   corr.tbl.bin <- df %>%
     select(-EmployeeNumber) %>%
     binarize(n_bins = 4, thresh_infreq = 0.01, name_infreq = "OTHER", one_hot = TRUE)
@@ -60,8 +64,8 @@ import.gower.dist <- function(num.var, corr.tbl){
 
 import.sil.tbl <- function(gower_dist){
   
-  sil_width <- purrr::map_dbl(2:10, function(k){
-    model <- cluster::pam(gower_dist, k = k)
+  sil_width <- map_dbl(2:10, function(k){
+    model <- pam(gower_dist, k = k)
     model$silinfo$avg.width
   })
   
@@ -73,30 +77,24 @@ import.sil.tbl <- function(gower_dist){
   return(sil_tbl)
 }
 
+
 import.cluster <- function(sil_tbl, gower_dist){
   
   max_sil = max(sil_tbl$sil_width)
   k = sil_tbl[which(sil_tbl$sil_width == max_sil), ]$k
   
-  pam_fit <- cluster::pam(gower_dist, diss = TRUE, k)
+  pam_fit <- pam(gower_dist, diss = TRUE, k)
   
-  hr_subset_tbl <- df %>%
-    dplyr::mutate(cluster = pam_fit$clustering) 
+  cluster_tbl <- df %>%
+    mutate(cluster = pam_fit$clustering) 
   
-  return(hr_subset_tbl)
+  return(cluster_tbl)
 }
 
-import.best.k <- function(sil_tbl, gower_dist){
+
+import.best.k <- function(cluster_tbl){
   
-  max_sil = max(sil_tbl$sil_width)
-  k = sil_tbl[which(sil_tbl$sil_width == max_sil), ]$k
-  
-  pam_fit <- cluster::pam(gower_dist, diss = TRUE, k)
-  
-  hr_subset_tbl <- df %>%
-    dplyr::mutate(cluster = pam_fit$clustering) 
-  
-  attrition_rate_tbl <- hr_subset_tbl %>%
+  attrition_rate_tbl <- cluster_tbl %>%
     
     dplyr::select(cluster, Attrition) %>%
     dplyr::mutate(attrition_num = forcats::fct_relevel(Attrition, "No", "Yes") %>% base::as.numeric() - 1) %>%
@@ -112,11 +110,13 @@ import.best.k <- function(sil_tbl, gower_dist){
   
   return(attrition_rate_tbl)
 }
-# Variables
+
+
+## Variables
 
 df <- import.df()
 corr.tbl <- import.corr.funnel(df)
-df.cor <- import.corr.mat(df)
+corr.mat <- import.corr.mat(df)
 
 
 ## Plots
@@ -146,7 +146,6 @@ continous.plot <- function(variable){
 
   return(g)
 }
-
 
 
 factor.plot <- function(variable){
@@ -180,7 +179,6 @@ continous.plot2 <- function(df_clusters, variable){
 }
 
 
-
 factor.plot2 <- function(df_clusters, variable){
   
   g = df_clusters[, c("cluster", variable)] %>%
@@ -198,12 +196,15 @@ factor.plot2 <- function(df_clusters, variable){
   return(g)
 }
 
+
 import.null.count <- function(df){
   
   na_count <- sapply(df, function(y) sum(length(which(is.na(y)))))
   
   return(sum(na_count))
 }
+
+
 
 
 
