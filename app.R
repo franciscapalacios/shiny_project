@@ -3,10 +3,7 @@ library(shinyjs)
 
 shinyApp(
   ui = tagList(
-    #shinythemes::themeSelector(),
-    navbarPage(
-      # theme = "cerulean",  # <--- To use a theme, uncomment this
-      "Attrition Clustering",
+    navbarPage("Attrition Clustering",
       tabPanel("Data Overview",
               
                mainPanel(
@@ -14,8 +11,7 @@ shinyApp(
                    tabPanel("Overview",
                             h4("Table"),
                             tableOutput("table"),
-                            h4("Verbatim text output"),
-                            verbatimTextOutput("nulls"),
+                            verbatimTextOutput("nulls")
                    ),
                    
                    tabPanel("Correlations",
@@ -30,7 +26,16 @@ shinyApp(
                             )
                 
                    ),
-                   tabPanel("Explore", "This panel is intentionally left blank")
+                   tabPanel("Explore",
+                            fluidPage(
+                              useShinyjs(),
+                              selectInput(inputId = "explore_plots",
+                                          label = "Choose variables:",
+                                          choices = setdiff(names(df), "Attrition")),
+                              hidden(plotOutput("continuos_plot")),
+                              hidden(plotOutput("factor_plot"))
+                            )
+                            )
                  )
                )
       ),
@@ -51,7 +56,16 @@ shinyApp(
                  tabsetPanel(
                    tabPanel("one", "left blank"),
                    
-                   tabPanel("two", "left blank")
+                   tabPanel("two", 
+                            fluidPage(
+                              useShinyjs(),
+                              selectInput(inputId = "explore_clusters",
+                                          label = "Choose variables:",
+                                          choices = setdiff(names(df), "Attrition")),
+                              hidden(plotOutput("continuos_plot2")),
+                              hidden(plotOutput("factor_plot2"))
+                            )
+                            )
                    ))
                )
       )
@@ -64,10 +78,10 @@ shinyApp(
       paste(input$varType, input$slider/100, sep = ", ")
     })
     output$table <- renderTable({
-      head(df, 4)
+      head(df)
     })
     output$nulls <- renderText({
-      names(df)
+      paste("Number of null values:", import.null.count(df))
     })
     output$plot1 <- renderPlot({
       corrplot(df.cor, type = "upper", order = "hclust", 
@@ -96,6 +110,55 @@ shinyApp(
       }else{
         hide('plot1')
         show('funnel')
+      }
+    })
+    
+    selectedData <- reactive({
+      input$explore_plots
+    })
+    
+    output$continuos_plot <- renderPlot({
+      continous.plot(selectedData())
+    })
+    
+    output$factor_plot <- renderPlot({
+      factor.plot(selectedData())
+    })
+    
+    observeEvent(input$explore_plots,{
+      if (all(class(df[, input$explore_plots]) == 'integer')){
+        hide('factor_plot')
+        show('continuos_plot')
+      }else{
+        hide('continuos_plot')
+        show('factor_plot')
+      }
+    })
+    
+    
+    selectedData2 <- reactive({
+      input$explore_clusters
+    })
+    
+    output$continuos_plot2 <- renderPlot({
+      continous.plot2(import.cluster(import.sil.tbl(import.gower.dist(input$slider, corr.tbl)),
+                                     import.gower.dist(input$slider, corr.tbl)), 
+                      selectedData2())
+    })
+    
+    output$factor_plot2 <- renderPlot({
+      factor.plot2(import.cluster(import.sil.tbl(import.gower.dist(input$slider, corr.tbl)),
+                                  import.gower.dist(input$slider, corr.tbl)), 
+                   selectedData2())
+    })
+    
+    observeEvent(input$explore_clusters,{
+      if (all(class(df[, input$explore_clusters]) == 'integer')){
+        hide('factor_plot2')
+        show('continuos_plot2')
+      }else{
+        hide('continuos_plot2')
+        show('factor_plot2')
       }
     })
     

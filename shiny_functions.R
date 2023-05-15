@@ -1,5 +1,5 @@
 import.df <- function(){
-  df <- read.csv('/Users/franciscapalacios/Downloads/HR_Analytics.csv')
+  df <- read.csv('./HR_Analytics.csv')
   df <- df %>% 
     mutate_if(is.character,as.factor) 
   
@@ -73,6 +73,19 @@ import.sil.tbl <- function(gower_dist){
   return(sil_tbl)
 }
 
+import.cluster <- function(sil_tbl, gower_dist){
+  
+  max_sil = max(sil_tbl$sil_width)
+  k = sil_tbl[which(sil_tbl$sil_width == max_sil), ]$k
+  
+  pam_fit <- cluster::pam(gower_dist, diss = TRUE, k)
+  
+  hr_subset_tbl <- df %>%
+    dplyr::mutate(cluster = pam_fit$clustering) 
+  
+  return(hr_subset_tbl)
+}
+
 import.best.k <- function(sil_tbl, gower_dist){
   
   max_sil = max(sil_tbl$sil_width)
@@ -105,10 +118,98 @@ df <- import.df()
 corr.tbl <- import.corr.funnel(df)
 df.cor <- import.corr.mat(df)
 
-#attrition_rate_tbl <- import.best.k(sil_tbl)
+
+## Plots
+
+continous.plot <- function(variable){
+
+  g = ggplot(df, aes_string(x = "Attrition", y = variable)) + 
+    ggdist::stat_halfeye(
+      aes(fill = Attrition),
+      width = .6, 
+      .width = 0, 
+      justification = -.2, 
+      point_colour = NA
+    ) + 
+    geom_boxplot(
+      aes(color = Attrition),
+      width = .15, 
+      outlier.shape = NA
+    ) +
+    geom_point(
+      aes(color = Attrition),
+      shape = 95,
+      size = 4,
+      alpha = .2
+    ) +
+    coord_cartesian(xlim = c(1.2, NA), clip = "off") 
+
+  return(g)
+}
 
 
-a <- import.best.k(import.sil.tbl(import.gower.dist(10, corr.tbl)),
-              import.gower.dist(10, corr.tbl))
-t(as.matrix(a))
+
+factor.plot <- function(variable){
+
+  g = df[, c(variable, "Attrition")] %>%
+    group_by(pick(everything())) %>%
+    summarise(n = n()) %>%
+    mutate(freq = n*100 / sum(n)) %>%
+    ggplot(aes_string(x=variable, y="freq", fill="Attrition")) + 
+    geom_bar(stat="identity") +
+    geom_text(
+      aes(y = freq, label = round(freq,1), group = Attrition),
+      position = position_stack(vjust = .5), color = "white") +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+  return(g)
+}
+
+
+continous.plot2 <- function(df_clusters, variable){
+  
+  g = ggplot(
+    df_clusters, 
+    aes_string(x = variable, y = "as.factor(cluster)", fill = "stat(x)")
+  ) +
+    geom_density_ridges_gradient(scale = 2, size = 0.3, rel_min_height = 0.01) +
+    scale_fill_viridis_c(name="", option = "C") +
+    ylab('Cluster')
+  
+  return(g)
+}
+
+
+
+factor.plot2 <- function(df_clusters, variable){
+  
+  g = df_clusters[, c("cluster", variable)] %>%
+    group_by(pick(everything())) %>%
+    summarise(n = n()) %>%
+    mutate(freq = n*100 / sum(n)) %>%
+    ggplot(aes_string(x=variable, y="freq", fill=variable)) + 
+    geom_bar(stat="identity") +
+    geom_text(
+      aes(y = freq, label = round(freq,1), group = variable),
+      position = position_stack(vjust = .5), color = "white") +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+    facet_grid(rows = vars(cluster))
+  
+  return(g)
+}
+
+import.null.count <- function(df){
+  
+  na_count <- sapply(df, function(y) sum(length(which(is.na(y)))))
+  
+  return(sum(na_count))
+}
+
+
+
+
+
+
+
+
 
