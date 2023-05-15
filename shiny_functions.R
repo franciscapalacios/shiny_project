@@ -85,14 +85,14 @@ import.cluster <- function(sil_tbl, gower_dist){
   
   pam_fit <- pam(gower_dist, diss = TRUE, k)
   
-  cluster_tbl <- df %>%
-    mutate(cluster = pam_fit$clustering) 
-  
-  return(cluster_tbl)
+  return(pam_fit)
 }
 
 
-import.best.k <- function(cluster_tbl){
+import.best.k <- function(pam_fit){
+  
+  cluster_tbl <- df %>%
+    mutate(cluster = pam_fit$clustering) 
   
   attrition_rate_tbl <- cluster_tbl %>%
     
@@ -203,14 +203,5 @@ import.null.count <- function(df){
   
   return(sum(na_count))
 }
-
-
-
-
-
-
-
-
-
 
 

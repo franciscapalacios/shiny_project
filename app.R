@@ -54,9 +54,11 @@ shinyApp(
       tabPanel("Cluster Results", 
                mainPanel(
                  tabsetPanel(
-                   tabPanel("one", "left blank"),
+                   tabPanel("Review",
+                            plotOutput("k.sil.plot")
+                            ),
                    
-                   tabPanel("two", 
+                   tabPanel("Explore", 
                             fluidPage(
                               useShinyjs(),
                               selectInput(inputId = "explore_clusters",
@@ -83,12 +85,12 @@ shinyApp(
       import.sil.tbl(gower.dist())
     })
     
-    cluster.tbl <- reactive({
+    cluster.fit <- reactive({
       import.cluster(sil.tbl(), gower.dist())
     })
     
     attr.tbl <- reactive({
-      import.best.k(cluster.tbl())
+      import.best.k(cluster.fit())
     })
     
     output$txtout <- renderText({
@@ -162,11 +164,13 @@ shinyApp(
       input$explore_clusters
     })
     output$continuos_plot2 <- renderPlot({
-      continous.plot2(cluster.tbl(), 
+      continous.plot2(df %>%
+                        mutate(cluster = cluster.fit()$clustering), 
                       selectedData2())
     })
     output$factor_plot2 <- renderPlot({
-      factor.plot2(cluster.tbl(), 
+      factor.plot2(df %>%
+                     mutate(cluster = cluster.fit()$clustering), 
                    selectedData2())
     })
     observeEvent(input$explore_clusters,{
@@ -177,6 +181,11 @@ shinyApp(
         hide('continuos_plot2')
         show('factor_plot2')
       }
+    })
+    
+    output$k.sil.plot <- renderPlot({
+      sil = silhouette (cluster.fit()$clustering, gower.dist()) 
+      fviz_silhouette(sil)
     })
     
   }
