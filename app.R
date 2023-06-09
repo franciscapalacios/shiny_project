@@ -1,5 +1,7 @@
 source("shiny_functions.R")
 library(shinyjs)
+library(magrittr)
+shinyOptions(cache = cachem::cache_disk("./myapp-cache"))
 
 linebreaks <- function(n){HTML(strrep(br(), n))}
 
@@ -83,7 +85,9 @@ shinyApp(
                                     width = "100%"
                ),
                uiOutput("sil.link"),
-                 sliderInput("slider", "Top correlated features to use:", 2, 25, 10),
+                 sliderInput("slider", 
+                             "Top correlated features to use:", 
+                             5, 17, 9),
                  tableOutput("att.table"),
                verbatimTextOutput("txtout")
                )
@@ -122,19 +126,25 @@ shinyApp(
     
     gower.dist <- reactive({
       import.gower.dist(input$slider, corr.tbl)
-    })
+    }) %>%
+      bindCache( input$slider )
     
     sil.tbl <- reactive({
-      import.sil.tbl(gower.dist())
-    })
+      import.sil.tbl(import.gower.dist(input$slider, corr.tbl)) 
+    }) %>%
+      bindCache( input$slider )
     
     cluster.fit <- reactive({
       import.cluster(sil.tbl(), gower.dist())
     })
     
     attr.tbl <- reactive({
-      import.best.k(cluster.fit())
-    })
+      import.best.k( import.cluster(
+        sil.tbl(), 
+        gower.dist()
+        ) )
+    }) %>%
+      bindCache( sil.tbl(), gower.dist(), input$slider )
     
     output$txtout <- renderText({
       max_row <- sapply(str_extract_all(attr.tbl()$Cluster_Turnover_Rate, '\\d+([.]\\d+)?'), function(x) max(as.numeric(x)))
@@ -143,7 +153,8 @@ shinyApp(
       total_turnover <- as.character(attr.tbl()[which.max(max_row),][1,5])
       paste("When choosing the", input$slider, "most correlated features, we get", dim(attr.tbl())[1], "clusters. \nCluster", cluster, 
       "has a turnover rate of", cluster_turnover, "which accounts for", total_turnover, "of the total attrition.")
-    })
+    }) %>%
+      bindCache(attr.tbl(), input$slider)
     
     output$table <- renderTable({
       desc.df
@@ -181,15 +192,17 @@ shinyApp(
         geom_point(size = 2) +
         geom_line() +
         ylab("Silhouette Width") +
-        scale_x_continuous(breaks = 2:10) +
+        scale_x_continuous(breaks = 2:8) +
         theme_minimal() +
         theme(axis.text=element_text(size=12),
               axis.title=element_text(size=14))
-    })
+    }) %>%
+      bindCache(sil.tbl(), input$slider)
     
     output$att.table <- renderTable({
       attr.tbl()
-    })
+    }) %>%
+      bindCache(attr.tbl(), input$slider)
     
     observeEvent(input$corr_plots,{
       if (input$corr_plots == "Multicollinearity Plot"){

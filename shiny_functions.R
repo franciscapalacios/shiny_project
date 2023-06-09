@@ -85,13 +85,13 @@ import.gower.dist <- function(num.var, corr.tbl){
 
 import.sil.tbl <- function(gower_dist){
   
-  sil_width <- map_dbl(2:10, function(k){
+  sil_width <- map_dbl(2:8, function(k){
     model <- pam(gower_dist, k = k)
     model$silinfo$avg.width
   })
   
   sil_tbl <- tibble(
-    k = 2:10,
+    k = 2:8,
     sil_width = sil_width
   )
   
